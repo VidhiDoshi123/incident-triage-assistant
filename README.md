@@ -6,17 +6,7 @@ Built natively on **Cloudflare Workers**, **Cloudflare Agents SDK**, **Durable O
 
 ---
 
-## Technical Interview Overview
 
-| Component | Technology | Architectural Role |
-|---|---|---|
-| **Frontend** | React 18, TypeScript, Tailwind CSS, Lucide | High-density developer dark mode UI with interactive triage workbench |
-| **Edge Router** | Cloudflare Workers (TypeScript) | Sub-millisecond global ingress, REST routing, and static asset delivery |
-| **Agent Runtime** | Cloudflare Agents SDK (`agents-sdk`) | Stateful actor runtime extending `Agent` with DO lifecycle coordination |
-| **State & Persistence** | Cloudflare Durable Objects + SQLite | Relational SQLite storage (`ctx.storage.sql`) per incident session & global index |
-| **LLM Inference** | Cloudflare Workers AI (`@cf/meta/llama-3.3-70b-instruct`) | Edge-hosted 70B parameter model specialized in root cause analysis & SRE runbooks |
-
----
 
 ## Architecture & System Design
 
