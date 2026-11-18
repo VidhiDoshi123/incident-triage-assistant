@@ -206,6 +206,7 @@ export function App() {
                 <TriageWorkbench
                   incident={activeIncident}
                   onToggleAction={handleToggleAction}
+                  onAskInChat={handleSendMessage}
                 />
               </section>
             </div>

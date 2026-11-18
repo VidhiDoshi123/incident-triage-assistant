@@ -13,6 +13,7 @@ export interface ActionItem {
   id: string;
   description: string;
   type: 'immediate_mitigation' | 'diagnostic' | 'permanent_fix';
+  priority: 'p1' | 'p2' | 'p3';
   status: 'pending' | 'completed';
   command?: string;
   explanation?: string;
@@ -40,6 +41,34 @@ export interface ChatMessage {
   isInitialTriage?: boolean;
 }
 
+export interface ErrorUnderstanding {
+  failureMechanism: string;
+  affectedComponent: string;
+  extractedErrorCodes: string[];
+  timeline: string[];
+}
+
+export interface SeverityAssessment {
+  severity: Severity;
+  justification: string;
+  blastRadius: string;
+  impactedAudiences: string[];
+}
+
+export interface ConfidenceAssessment {
+  isConfident: boolean;
+  primaryConfidence: number;
+  ambiguityExplanation?: string;
+  missingTelemetry?: string[];
+}
+
+export interface CrossIncidentReference {
+  relatedIncidentId: string;
+  relatedIncidentTitle: string;
+  similarityFactor: string;
+  comparisonNote: string;
+}
+
 export interface IncidentRecord {
   id: string;
   title: string;
@@ -53,6 +82,13 @@ export interface IncidentRecord {
   blastRadius: string;
   rawLogs?: string;
   errorDescription?: string;
+
+  // Structured 4-phase triage artifacts
+  errorUnderstanding?: ErrorUnderstanding;
+  severityAssessment?: SeverityAssessment;
+  confidenceAssessment?: ConfidenceAssessment;
+  crossIncidentReferences?: CrossIncidentReference[];
+
   rootCauses: RootCauseHypothesis[];
   actionItems: ActionItem[];
   diagnosticCommands: DiagnosticCommand[];
@@ -70,6 +106,7 @@ export interface IncidentHeader {
   createdAt: string;
   updatedAt: string;
   blastRadius: string;
+  rootCausesSummary?: string;
 }
 
 export interface IncidentPreset {
