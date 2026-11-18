@@ -59,6 +59,88 @@ export const ChatTimeline: React.FC<ChatTimelineProps> = ({
     'Draft a 3-bullet update for the #incidents Slack channel',
   ];
 
+  const renderInlineSpans = (text: string) => {
+    // Split by inline code `...`
+    const codeParts = text.split(/(`[^`]+`)/g);
+    return codeParts.map((cp, i) => {
+      if (cp.startsWith('`') && cp.endsWith('`')) {
+        return (
+          <code key={i} className="px-1.5 py-0.5 rounded bg-[#090D15] border border-gray-800 text-blue-300 font-mono text-[11px] mx-0.5">
+            {cp.slice(1, -1)}
+          </code>
+        );
+      }
+
+      // Split by bold **...**
+      const boldParts = cp.split(/(\*\*[^*]+\*\*)/g);
+      return boldParts.map((bp, j) => {
+        if (bp.startsWith('**') && bp.endsWith('**')) {
+          return (
+            <strong key={j} className="text-white font-semibold">
+              {bp.slice(2, -2)}
+            </strong>
+          );
+        }
+        return bp;
+      });
+    });
+  };
+
+  const renderParagraph = (text: string, partIdx: number) => {
+    const lines = text.split('\n');
+    return (
+      <div key={partIdx} className="space-y-1.5 text-xs sm:text-sm leading-relaxed">
+        {lines.map((line, lineIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={lineIdx} className="h-1.5" />;
+
+          // Headers
+          if (trimmed.startsWith('### ')) {
+            return (
+              <h4 key={lineIdx} className="text-xs sm:text-sm font-bold text-gray-100 pt-1.5 border-b border-gray-800 pb-1">
+                {renderInlineSpans(trimmed.slice(4))}
+              </h4>
+            );
+          }
+          if (trimmed.startsWith('## ')) {
+            return (
+              <h3 key={lineIdx} className="text-sm sm:text-base font-bold text-gray-100 pt-2 border-b border-gray-800 pb-1">
+                {renderInlineSpans(trimmed.slice(3))}
+              </h3>
+            );
+          }
+
+          // Bullet lists
+          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            return (
+              <div key={lineIdx} className="flex items-start space-x-2 pl-1.5">
+                <span className="text-blue-400 font-bold">•</span>
+                <span className="flex-1 text-gray-200">{renderInlineSpans(trimmed.slice(2))}</span>
+              </div>
+            );
+          }
+
+          // Ordered list
+          const orderedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+          if (orderedMatch) {
+            return (
+              <div key={lineIdx} className="flex items-start space-x-2 pl-1.5">
+                <span className="text-blue-400 font-mono text-[11px]">{orderedMatch[1]}.</span>
+                <span className="flex-1 text-gray-200">{renderInlineSpans(orderedMatch[2])}</span>
+              </div>
+            );
+          }
+
+          return (
+            <p key={lineIdx} className="text-gray-200">
+              {renderInlineSpans(line)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderFormattedContent = (content: string, msgId: string) => {
     // Split by code blocks ```...```
     const parts = content.split(/(```[\s\S]*?```)/g);
@@ -105,11 +187,7 @@ export const ChatTimeline: React.FC<ChatTimelineProps> = ({
       }
 
       // Format markdown paragraphs
-      return (
-        <div key={idx} className="space-y-2 whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
-          {part}
-        </div>
-      );
+      return renderParagraph(part, idx);
     });
   };
 

@@ -35,6 +35,7 @@ export function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [mobileTab, setMobileTab] = useState<'chat' | 'workbench'>('chat');
 
   // Initial load
   useEffect(() => {
@@ -190,10 +191,38 @@ export function App() {
               onStatusChange={handleStatusChange}
             />
 
+            {/* Mobile Tab Switcher (< lg) */}
+            <div className="lg:hidden flex border-b border-gray-800 bg-[#0E131F]">
+              <button
+                onClick={() => setMobileTab('chat')}
+                className={`flex-1 py-2 text-xs font-semibold text-center border-b-2 transition-colors ${
+                  mobileTab === 'chat'
+                    ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Chat Timeline
+              </button>
+              <button
+                onClick={() => setMobileTab('workbench')}
+                className={`flex-1 py-2 text-xs font-semibold text-center border-b-2 transition-colors ${
+                  mobileTab === 'workbench'
+                    ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                    : 'border-transparent text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Triage Workbench ({activeIncident.actionItems.length} actions)
+              </button>
+            </div>
+
             {/* Split View: Chat Timeline (Left) & DevOps Workbench (Right) */}
             <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
               {/* Left / Center: Interactive AI Chat Timeline (7 cols) */}
-              <section className="lg:col-span-7 h-full flex flex-col overflow-hidden border-r border-gray-800">
+              <section
+                className={`lg:col-span-7 h-full flex-col overflow-hidden border-r border-gray-800 ${
+                  mobileTab === 'chat' ? 'flex' : 'hidden lg:flex'
+                }`}
+              >
                 <ChatTimeline
                   messages={activeIncident.messages}
                   onSendMessage={handleSendMessage}
@@ -202,7 +231,11 @@ export function App() {
               </section>
 
               {/* Right: Root Causes & Action Runbook (5 cols) */}
-              <section className="lg:col-span-5 h-full flex flex-col overflow-hidden bg-[#0E131F]">
+              <section
+                className={`lg:col-span-5 h-full flex-col overflow-hidden bg-[#0E131F] ${
+                  mobileTab === 'workbench' ? 'flex' : 'hidden lg:flex'
+                }`}
+              >
                 <TriageWorkbench
                   incident={activeIncident}
                   onToggleAction={handleToggleAction}

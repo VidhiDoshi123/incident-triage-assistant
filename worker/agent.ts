@@ -77,17 +77,19 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-incident-id',
     };
 
     if (method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
 
+    const incidentId = request.headers.get('x-incident-id') || this.ctx.id.toString();
+
     try {
       if (path.endsWith('/triage') && method === 'POST') {
         const body = (await request.json()) as TriageRequestPayload;
-        const result = await this.handleTriage(body);
+        const result = await this.handleTriage(body, incidentId);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -95,14 +97,14 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
 
       if (path.endsWith('/chat') && method === 'POST') {
         const body = (await request.json()) as ChatRequestPayload;
-        const result = await this.handleChat(body);
+        const result = await this.handleChat(body, incidentId);
         return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
       if (path.endsWith('/data') && method === 'GET') {
-        const incident = await this.getIncidentData();
+        const incident = await this.getIncidentData(incidentId);
         return new Response(JSON.stringify(incident), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -110,7 +112,7 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
 
       if (path.endsWith('/action') && method === 'PATCH') {
         const body = (await request.json()) as { actionId: string; status: 'pending' | 'completed' };
-        const updated = await this.toggleActionItem(body.actionId, body.status);
+        const updated = await this.toggleActionItem(body.actionId, body.status, incidentId);
         return new Response(JSON.stringify(updated), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -118,7 +120,7 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
 
       if (path.endsWith('/status') && method === 'PATCH') {
         const body = (await request.json()) as { status: IncidentStatus };
-        const updated = await this.updateIncidentStatus(body.status);
+        const updated = await this.updateIncidentStatus(body.status, incidentId);
         return new Response(JSON.stringify(updated), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -150,12 +152,13 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
     return '';
   }
 
-  private async getIncidentData(): Promise<IncidentRecord | null> {
+  private async getIncidentData(id?: string): Promise<IncidentRecord | null> {
+    const targetId = id || this.ctx.id.toString();
     if (this.ctx.storage.sql) {
       try {
         const rows = this.ctx.storage.sql.exec<any>(
           `SELECT record_json FROM incident_details WHERE id = ? LIMIT 1;`,
-          this.ctx.id.toString()
+          targetId
         );
         for (const r of rows) {
           if (r.record_json) {
@@ -167,7 +170,9 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
       }
     }
 
-    const saved = await this.ctx.storage.get<IncidentRecord>('incident_record');
+    const saved =
+      (await this.ctx.storage.get<IncidentRecord>(`incident_${targetId}`)) ||
+      (await this.ctx.storage.get<IncidentRecord>('incident_record'));
     return saved || null;
   }
 
@@ -226,12 +231,13 @@ export class IncidentAgent extends Agent<Env, IncidentRecord> {
       }
     }
 
-    // Persist to KV storage as well
+    // Persist to KV storage as well with specific ID and fallback key
+    await this.ctx.storage.put(`incident_${incident.id}`, incident);
     await this.ctx.storage.put('incident_record', incident);
   }
 
-  private async handleTriage(payload: TriageRequestPayload): Promise<IncidentRecord> {
-    const incidentId = this.ctx.id.toString();
+  private async handleTriage(payload: TriageRequestPayload, incidentId?: string): Promise<IncidentRecord> {
+    const finalId = incidentId || this.ctx.id.toString();
     const now = new Date().toISOString();
 
     // Retrieve past incidents knowledge base to maintain cross-incident memory
@@ -308,7 +314,7 @@ Output strictly valid JSON according to the schema.`;
     ];
 
     const incident: IncidentRecord = {
-      id: incidentId,
+      id: finalId,
       title: triageResult.title || payload.title || 'Unclassified Application Incident',
       severity: triageResult.severity || 'HIGH',
       status: 'INVESTIGATING',
@@ -354,8 +360,8 @@ Output strictly valid JSON according to the schema.`;
     return incident;
   }
 
-  private async handleChat(payload: ChatRequestPayload): Promise<{ message: ChatMessage; incident: IncidentRecord }> {
-    const incident = await this.getIncidentData();
+  private async handleChat(payload: ChatRequestPayload, incidentId?: string): Promise<{ message: ChatMessage; incident: IncidentRecord }> {
+    const incident = await this.getIncidentData(incidentId);
     if (!incident) {
       throw new Error('Incident not found or not initialized yet');
     }
@@ -424,8 +430,8 @@ Action items: ${incident.actionItems.map(a => `[${a.priority || 'p1'}] ${a.descr
     return { message: assistantMessage, incident };
   }
 
-  private async toggleActionItem(actionId: string, status: 'pending' | 'completed'): Promise<IncidentRecord> {
-    const incident = await this.getIncidentData();
+  private async toggleActionItem(actionId: string, status: 'pending' | 'completed', incidentId?: string): Promise<IncidentRecord> {
+    const incident = await this.getIncidentData(incidentId);
     if (!incident) throw new Error('Incident not found');
 
     const item = incident.actionItems.find(a => a.id === actionId);
@@ -439,8 +445,8 @@ Action items: ${incident.actionItems.map(a => `[${a.priority || 'p1'}] ${a.descr
     return incident;
   }
 
-  private async updateIncidentStatus(status: IncidentStatus): Promise<IncidentRecord> {
-    const incident = await this.getIncidentData();
+  private async updateIncidentStatus(status: IncidentStatus, incidentId?: string): Promise<IncidentRecord> {
+    const incident = await this.getIncidentData(incidentId);
     if (!incident) throw new Error('Incident not found');
 
     incident.status = status;

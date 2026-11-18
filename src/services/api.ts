@@ -82,7 +82,13 @@ export const api = {
     try {
       const res = await fetch(`/api/incidents/${id}`);
       if (res.ok) {
-        return await res.json();
+        const data = (await res.json()) as IncidentRecord;
+        if (data && data.id) {
+          const local = getLocalRecords();
+          local[data.id] = data;
+          saveLocalRecords(local);
+          return data;
+        }
       }
     } catch {
       // Fallback

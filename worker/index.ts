@@ -8,7 +8,7 @@ export { IncidentAgent, IncidentIndex };
 const corsHeaders: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-incident-id',
 };
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -60,6 +60,18 @@ export default {
       }
     }
 
+    // Cross-incident recent context endpoint
+    if (path === '/api/incidents/recent-context' && method === 'GET') {
+      try {
+        const indexStub = env.INCIDENT_INDEX.get(env.INCIDENT_INDEX.idFromName('global-index'));
+        const res = await indexStub.fetch('http://do/recent-context');
+        const data = await res.json();
+        return jsonResponse(data);
+      } catch (err: any) {
+        return jsonResponse({ context: '' });
+      }
+    }
+
     // Create & triage a new incident
     if (path === '/api/incidents' && method === 'POST') {
       try {
@@ -69,7 +81,10 @@ export default {
 
         const res = await agentStub.fetch('http://do/triage', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-incident-id': incidentId,
+          },
           body: JSON.stringify(body),
         });
 
@@ -90,7 +105,9 @@ export default {
 
       // GET /api/incidents/:id -> retrieve full incident data
       if (subPath === '' && method === 'GET') {
-        const res = await agentStub.fetch('http://do/data');
+        const res = await agentStub.fetch('http://do/data', {
+          headers: { 'x-incident-id': incidentId },
+        });
         const data = await res.json();
         return jsonResponse(data);
       }
@@ -100,7 +117,10 @@ export default {
         const body = await request.json();
         const res = await agentStub.fetch('http://do/triage', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-incident-id': incidentId,
+          },
           body: JSON.stringify(body),
         });
         const data = await res.json();
@@ -112,7 +132,10 @@ export default {
         const body = (await request.json()) as ChatRequestPayload;
         const res = await agentStub.fetch('http://do/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-incident-id': incidentId,
+          },
           body: JSON.stringify(body),
         });
         const data = await res.json();
@@ -124,7 +147,10 @@ export default {
         const body = await request.json();
         const res = await agentStub.fetch('http://do/action', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-incident-id': incidentId,
+          },
           body: JSON.stringify(body),
         });
         const data = await res.json();
@@ -136,7 +162,10 @@ export default {
         const body = (await request.json()) as { status: IncidentStatus };
         const res = await agentStub.fetch('http://do/status', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-incident-id': incidentId,
+          },
           body: JSON.stringify(body),
         });
         const data = await res.json();
